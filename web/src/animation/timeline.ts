@@ -12,6 +12,7 @@ export function createPlaybackClock() {
     let elapsed = 0;
     let waiting = 0;
     let replayDelay: number | null = config.preview.replayDelayMs;
+    let manualFade = false;
 
     return {
         speed: 1,
@@ -26,19 +27,26 @@ export function createPlaybackClock() {
         },
         setDuration(duration: number) {
             scheduledEnd = splashMs + duration + fadeMs;
-            if (replayDelay !== null && elapsed <= animationEnd - fadeMs) {
+            if (!manualFade && replayDelay !== null && elapsed <= animationEnd - fadeMs) {
                 animationEnd = Math.max(scheduledEnd, elapsed + fadeMs);
             }
         },
         setReplayDelay(delay: number | null) {
             if (delay === null) {
-                animationEnd = Infinity;
+                if (!manualFade) animationEnd = Infinity;
                 waiting = 0;
-            } else if (replayDelay === null) animationEnd = Math.max(scheduledEnd, elapsed + fadeMs);
+            } else if (!manualFade && replayDelay === null) animationEnd = Math.max(scheduledEnd, elapsed + fadeMs);
             replayDelay = delay;
+        },
+        fadeOut() {
+            if (manualFade || elapsed >= animationEnd - fadeMs) return false;
+            manualFade = true;
+            animationEnd = elapsed + fadeMs;
+            return true;
         },
         reset() {
             elapsed = waiting = 0;
+            manualFade = false;
             animationEnd = replayDelay === null ? Infinity : scheduledEnd;
         },
         step(frames: number) {

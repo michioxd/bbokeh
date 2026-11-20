@@ -233,6 +233,11 @@ export async function mountBoot(canvas: HTMLCanvasElement, host: HTMLElement, po
     app.start();
     return {
         restart,
+        fadeOut() {
+            if (!clock.fadeOut()) return false;
+            app.start();
+            return true;
+        },
         togglePlayback() {
             if (app.ticker.started) app.stop();
             else app.start();

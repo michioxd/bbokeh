@@ -67,6 +67,11 @@ void mountBoot(canvas, canvas.parentElement!, orientation.value === "portrait")
         playback.addEventListener("click", () => {
             playback.textContent = boot.togglePlayback() ? "Pause" : "Play";
         });
+        const fadeOut = document.querySelector<HTMLButtonElement>("#fade-out")!;
+        fadeOut.disabled = false;
+        fadeOut.addEventListener("click", () => {
+            if (boot.fadeOut()) playback.textContent = "Pause";
+        });
         for (const button of document.querySelectorAll<HTMLButtonElement>("button[data-step]")) {
             button.disabled = false;
             button.addEventListener("click", () => {

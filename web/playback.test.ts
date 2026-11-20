@@ -82,3 +82,27 @@ assert.equal(stepping.frame, 2714);
 stepping.setReplayDelay(null);
 stepping.step(10);
 assert.equal(stepping.frame, 2724);
+
+const manualFade = createPlaybackClock();
+manualFade.setDuration(3000);
+manualFade.setReplayDelay(200);
+manualFade.advance(2200);
+manualFade.fadeOut();
+assert.equal(manualFade.advance(250), false);
+manualFade.fadeOut(); // A second click must not restart the fade.
+manualFade.setDuration(4000);
+assert.equal(manualFade.advance(249), false);
+assert.equal(manualFade.elapsed, 2699);
+assert.equal(manualFade.advance(200), false);
+assert.equal(manualFade.elapsed, 2700);
+assert.equal(manualFade.advance(1), true);
+manualFade.reset();
+assert.equal(manualFade.animationEnd, 5700); // Manual fade did not change the saved duration.
+
+manualFade.setReplayDelay(null);
+manualFade.advance(2200);
+manualFade.fadeOut();
+assert.equal(manualFade.advance(5000), false);
+assert.equal(manualFade.elapsed, 2700); // Loop forever holds on black after a manual fade.
+manualFade.reset();
+assert.equal(manualFade.animationEnd, Infinity);
