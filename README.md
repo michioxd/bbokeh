@@ -2,6 +2,8 @@
 
 Recreates the BlackBerry PlayBook boot animation in your browser, using original graphics from BlackBerry Tablet OS 2.1.0.1917.
 
+<img width="1450" height="660" alt="image" src="https://github.com/user-attachments/assets/baa1bc29-d605-43dc-a9b9-4fd1f8c37c63" />
+
 ## Run locally
 
 Install [Bun](https://bun.sh/) and use a browser with WebGL 2 support.
