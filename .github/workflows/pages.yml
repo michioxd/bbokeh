@@ -3,6 +3,14 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+    paths:
+      - .github/workflows/pages.yml
+      - web/index.html
+      - web/package.json
+      - web/bun.lock
+      - web/tsconfig.json
+      - web/src/**
+      - web/public/**
   workflow_dispatch:
 
 permissions:

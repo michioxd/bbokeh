@@ -14,10 +14,6 @@ bun install
 bun run dev
 ```
 
-## Deploy to GitHub Pages
-
-In the repository, select **Settings > Pages > Source > GitHub Actions**. Push to `main` or run **Deploy to GitHub Pages** from the Actions tab. The workflow uses the latest Bun and GitHub Pages' configured base path, normally `https://<owner>.github.io/bbokeh/`. Missing URLs serve the app through `404.html` with a 404 status.
-
 ## How it works
 
 1. The firmware's `splash_script` starts `winchester-bootreason`, which asks the display driver (`displayHAL-winchester.so`) to show the initial logo. The 494x64 image is centered at `(265, 268)` on the 1024x600 screen.
