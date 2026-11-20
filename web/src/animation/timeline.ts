@@ -1,4 +1,4 @@
-import config from "./playbook.json";
+import config from "../../../firmware/playbook.json";
 
 const fadeMs = config.spotlights.configuredFadeMs / 2;
 const splashMs = config.preview.firstSplashMs;

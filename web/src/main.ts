@@ -2,7 +2,7 @@ import "./style.scss";
 import { resetSidebarWidth } from "./preview-layout";
 
 import { mountBoot } from "./animation/render";
-import config from "./animation/playbook.json";
+import config from "../../firmware/playbook.json";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#canvas")!;
 const restart = document.querySelector<HTMLButtonElement>("#restart")!;

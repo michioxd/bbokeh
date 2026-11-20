@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { createMotion, decodeRle, readSpawnTable } from "./src/animation/motion";
 import { createPlaybackClock } from "./src/animation/timeline";
 
-const asset = (name: string) => new Uint8Array(readFileSync(new URL(`./public/firmware/${name}`, import.meta.url)));
+const asset = (name: string) => new Uint8Array(readFileSync(new URL(`../firmware/${name}`, import.meta.url)));
 const quadrant = decodeRle(asset("spotlight.rle"), 128 * 128);
 const motion = createMotion(quadrant, readSpawnTable(asset("spotlight-spawns.f32")), 1395216409);
 assert.equal(createHash("sha256").update(motion.light).digest("hex"), "a05fbefd9221acb80cbbede0d0310435b9cf00cd5a7b7767778aab76ce8772d5");

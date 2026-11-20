@@ -1,0 +1,3 @@
+[env]
+# SDL2's bundled CMake file predates the minimum policy supported by CMake 4.
+CMAKE_POLICY_VERSION_MINIMUM = "3.5"

@@ -1,4 +1,4 @@
-import config from "./playbook.json";
+import config from "../../../firmware/playbook.json";
 
 const { screen, spotlights } = config;
 const f32 = Math.fround;

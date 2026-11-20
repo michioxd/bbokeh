@@ -1,6 +1,6 @@
 # bbokeh
 
-Recreates the BlackBerry PlayBook boot animation in your browser, using original graphics from BlackBerry Tablet OS 2.1.0.1917.
+Recreates the BlackBerry PlayBook boot animation in your browser or a native SDL2 window, using original graphics from BlackBerry Tablet OS 2.1.0.1917.
 
 <img width="1450" height="660" alt="image" src="https://github.com/user-attachments/assets/baa1bc29-d605-43dc-a9b9-4fd1f8c37c63" />
 
@@ -13,6 +13,17 @@ cd web
 bun install
 bun run dev
 ```
+
+### Native SDL2 preview
+
+Install Rust 1.88 or newer, CMake, and a C/C++ toolchain (MSVC on Windows). From the repository root:
+
+```sh
+cd sdl
+cargo run --release --locked
+```
+
+The preview starts at 1024x600 with settings hidden. Press **Space** to open the ImGui overlay in the same SDL2 window and **Esc** to hide it. The overlay controls playback, frame stepping, fade, orientation, fullscreen, and the SDL2 rendering driver. The native build embeds the same firmware assets as the web preview.
 
 ## How it works
 
@@ -45,9 +56,11 @@ Use Debian (WSL works), [bb10mt](https://github.com/bb10root/bb10mt) 0.5.9.999, 
    python3 qnxprobe.py ifs-startup.img --extract ifs.zip
    ```
 
-4. Extract `lba0/usr/lib/graphics/omap4430/displayHAL-winchester.so` from `ifs.zip` (`H`) and `lba0/usr/bin/playbook_spotlights` from `base.zip` (`S`). Copy the byte ranges below to [`web/public/firmware/`](web/public/firmware/). Range ends are exclusive.
+4. Extract `lba0/usr/lib/graphics/omap4430/displayHAL-winchester.so` from `ifs.zip` (`H`) and `lba0/usr/bin/playbook_spotlights` from `base.zip` (`S`). Copy the byte ranges below to the root [`firmware/`](firmware/) directory. Range ends are exclusive.
 
 ### Bundled asset contents
+
+Both previews use these files and the same `firmware/playbook.json` settings. Vite publishes the four binary assets with the web build; Rust embeds them at compile time.
 
 | File | Contents | Source byte ranges | SHA-256 |
 | --- | --- | --- | --- |

@@ -14,7 +14,7 @@ import {
 } from "pixi.js";
 import { loadBootAssets } from "./assets";
 import { createMotion } from "./motion";
-import config from "./playbook.json";
+import config from "../../../firmware/playbook.json";
 import { createPlaybackClock } from "./timeline";
 
 const { screen, firstSplash, spotlights, preview } = config;
