@@ -10,6 +10,7 @@ import {
     Sprite,
     Texture,
     UniformGroup,
+    type Ticker,
 } from "pixi.js";
 import { loadBootAssets } from "./assets";
 import { createMotion } from "./motion";
@@ -48,6 +49,42 @@ const fragment = `
         finalColor = vec4(la.r * a * vRGBA.rgb, mix(a, la.r, uLightMask) * vRGBA.a);
     }`;
 
+const wgsl = `
+    struct GlobalUniforms {
+        uProjectionMatrix: mat3x3<f32>,
+        uWorldTransformMatrix: mat3x3<f32>,
+        uWorldColorAlpha: vec4f,
+        uResolution: vec2f,
+    }
+    struct LocalUniforms {
+        uTransformMatrix: mat3x3<f32>,
+        uColor: vec4f,
+        uRound: f32,
+    }
+    struct Settings { uHasAlpha: f32, uLightMask: f32 }
+    struct Varyings {
+        @builtin(position) position: vec4f,
+        @location(0) uv: vec2f,
+        @location(1) rgba: vec4f,
+    }
+    @group(0) @binding(0) var<uniform> globalUniforms: GlobalUniforms;
+    @group(1) @binding(0) var<uniform> localUniforms: LocalUniforms;
+    @group(2) @binding(0) var uPixels: texture_2d<f32>;
+    @group(2) @binding(1) var uSampler: sampler;
+    @group(2) @binding(2) var<uniform> settings: Settings;
+
+    @vertex fn mainVert(@location(0) aPosition: vec2f, @location(1) aUV: vec2f, @location(2) aRGBA: vec4f) -> Varyings {
+        let p = globalUniforms.uProjectionMatrix * globalUniforms.uWorldTransformMatrix
+            * localUniforms.uTransformMatrix * vec3f(aPosition, 1.0);
+        return Varyings(vec4f(p.xy, 0.0, 1.0), aUV, aRGBA);
+    }
+
+    @fragment fn mainFrag(input: Varyings) -> @location(0) vec4f {
+        let la = textureSample(uPixels, uSampler, input.uv).rg;
+        let a = mix(1.0, la.g, settings.uHasAlpha);
+        return vec4f(la.r * a * input.rgba.rgb, mix(a, la.r, settings.uLightMask) * input.rgba.a);
+    }`;
+
 function makePass(
     resource: Uint8Array,
     width: number,
@@ -81,8 +118,13 @@ function makePass(
     });
     const shader = Shader.from({
         gl: { vertex, fragment },
+        gpu: {
+            vertex: { source: wgsl, entryPoint: "mainVert" },
+            fragment: { source: wgsl, entryPoint: "mainFrag" },
+        },
         resources: {
             uPixels: source,
+            uSampler: source.style,
             settings: new UniformGroup({
                 uHasAlpha: { value: Number(hasAlpha), type: "f32" },
                 uLightMask: { value: Number(kind === "light"), type: "f32" },
@@ -90,7 +132,7 @@ function makePass(
         },
     });
     const mesh = new Mesh({ geometry, shader, blendMode: "normal" });
-    return { mesh, vertices, buffer, source };
+    return { mesh, geometry, shader, vertices, buffer, source };
 }
 
 function writeQuad(
@@ -120,45 +162,71 @@ function writeQuad(
     }
 }
 
-export async function mountBoot(canvas: HTMLCanvasElement, host: HTMLElement, portrait: boolean) {
-    const assets = await loadBootAssets();
-    const gl = canvas.getContext("webgl2", { alpha: false, antialias: false });
-    if (!gl) throw new Error("WebGL 2 is required");
+async function initRenderer(canvas: HTMLCanvasElement, webgpu: boolean, allowFallback = false) {
     const app = new Application();
-    await app.init({ canvas, context: gl, preference: "webgl", autoStart: false, background: 0x000000 });
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    await app.init({
+        canvas,
+        preference: webgpu ? (allowFallback ? ["webgpu", "webgl"] : ["webgpu"]) : ["webgl"],
+        failIfMajorPerformanceCaveat: false,
+        autoStart: false,
+        background: 0x000000,
+    });
+    if (app.renderer.name === "webgl") {
+        const gl = canvas.getContext("webgl2");
+        if (!gl) {
+            app.destroy();
+            throw new Error("WebGL 2 is required for the WebGL backend");
+        }
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1); // The 494-byte splash rows are tightly packed.
+    }
+    return app;
+}
 
-    const root = app.stage.addChild(new Container());
-    root.pivot.set(screen.width / 2, screen.height / 2);
-    const first = makePass(assets.firstImage, firstSplash.width, firstSplash.height, 1, "splash");
-    const logo = makePass(assets.logoImage, spotlights.logo.width, spotlights.logo.height, 1, "logo");
+export async function mountBoot(canvas: HTMLCanvasElement, host: HTMLElement, portrait: boolean, webgpu: boolean) {
+    const assets = await loadBootAssets();
     const count = spotlights.small.count + spotlights.large.count;
     const lightSize = 2 * spotlights.light.quadrantSize;
     let motion = createMotion(assets.quadrant, assets.spawns, (Date.now() / 1000) | 0);
-    const lights = makePass(motion.light, lightSize, lightSize, count, "light");
-    writeQuad(first.vertices, 0, firstSplash.x, firstSplash.y, firstSplash.width, firstSplash.height, 1, 1, 1, 1);
-    writeQuad(
-        logo.vertices,
-        0,
-        spotlights.logo.x,
-        spotlights.logo.y,
-        spotlights.logo.width,
-        spotlights.logo.height,
-        1,
-        1,
-        1,
-        1,
-    );
-    const fade = new Sprite(Texture.WHITE);
-    fade.tint = 0x000000;
-    fade.setSize(screen.width, screen.height);
-    root.addChild(first.mesh, lights.mesh, logo.mesh, fade);
+
+    function makeView(app: Application) {
+        const root = app.stage.addChild(new Container());
+        root.pivot.set(screen.width / 2, screen.height / 2);
+        const first = makePass(assets.firstImage, firstSplash.width, firstSplash.height, 1, "splash");
+        const { x, y, width, height } = spotlights.logo;
+        const logo = makePass(assets.logoImage, width, height, 1, "logo");
+        const lights = makePass(motion.light, lightSize, lightSize, count, "light");
+        writeQuad(first.vertices, 0, firstSplash.x, firstSplash.y, firstSplash.width, firstSplash.height, 1, 1, 1, 1);
+        writeQuad(logo.vertices, 0, x, y, width, height, 1, 1, 1, 1);
+        const fade = new Sprite(Texture.WHITE);
+        fade.tint = 0x000000;
+        fade.setSize(screen.width, screen.height);
+        root.addChild(first.mesh, lights.mesh, logo.mesh, fade);
+        return {
+            app,
+            root,
+            first,
+            logo,
+            lights,
+            fade,
+            destroy() {
+                app.destroy(false, { children: true });
+                for (const { geometry, shader, source } of [first, logo, lights]) {
+                    geometry.destroy(true);
+                    shader.destroy();
+                    source.destroy();
+                }
+            },
+        };
+    }
+
+    let view = makeView(await initRenderer(canvas, webgpu, true));
     const clock = createPlaybackClock();
     let frame = -1;
     let fitToViewport = true;
     let showLogo = true;
 
-    function resize() {
+    function resizeView({ app, root }: typeof view) {
+        const canvas = app.canvas;
         const w = portrait ? screen.height : screen.width;
         const h = portrait ? screen.width : screen.height;
         const shouldFit = fitToViewport || document.fullscreenElement === host;
@@ -176,11 +244,13 @@ export async function mountBoot(canvas: HTMLCanvasElement, host: HTMLElement, po
         app.render();
     }
 
+    const resize = () => resizeView(view);
+
     const glass = new ResizeObserver(resize);
     glass.observe(host);
     window.addEventListener("resize", resize);
 
-    function draw() {
+    function draw({ first, logo, lights, fade } = view, uploadFrame = false) {
         const time = clock.elapsed - preview.firstSplashMs;
         const animationEnd = clock.animationEnd - preview.firstSplashMs;
         first.mesh.visible = showLogo && time < 0;
@@ -193,7 +263,7 @@ export async function mountBoot(canvas: HTMLCanvasElement, host: HTMLElement, po
         fade.alpha = alpha;
         if (!lights.mesh.visible) return;
         const target = clock.frame;
-        if (target === frame) return;
+        if (target === frame && !uploadFrame) return;
         if (target < frame) {
             motion.rewind();
             frame = -1;
@@ -213,11 +283,12 @@ export async function mountBoot(canvas: HTMLCanvasElement, host: HTMLElement, po
         lights.buffer.update();
     }
 
-    app.ticker.add((ticker) => {
+    function tick(ticker: Ticker) {
         if (clock.advance(ticker.deltaMS)) restart();
         draw();
-    });
+    }
     function restart() {
+        const { app, lights } = view;
         clock.reset();
         frame = -1;
         motion = createMotion(assets.quadrant, assets.spawns, (Date.now() / 1000) | 0);
@@ -230,20 +301,46 @@ export async function mountBoot(canvas: HTMLCanvasElement, host: HTMLElement, po
     }
     draw();
     resize();
-    app.start();
+    view.app.ticker.add(tick);
+    view.app.start();
     return {
+        get backend() {
+            return view.app.renderer.name;
+        },
+        async setBackend(webgpu: boolean) {
+            if (view.app.renderer.name === (webgpu ? "webgpu" : "webgl")) return;
+            // A canvas cannot change context type. Render the new view before replacing the old one.
+            const canvas = view.app.canvas.cloneNode() as HTMLCanvasElement;
+            const next = makeView(await initRenderer(canvas, webgpu));
+            try {
+                draw(next, true);
+                resizeView(next);
+            } catch (error) {
+                next.destroy();
+                throw error;
+            }
+            const previous = view;
+            const playing = previous.app.ticker.started;
+            previous.app.canvas.replaceWith(canvas);
+            view = next;
+            previous.destroy();
+            next.app.ticker.add(tick);
+            if (playing) next.app.start();
+        },
         restart,
         fadeOut() {
             if (!clock.fadeOut()) return false;
-            app.start();
+            view.app.start();
             return true;
         },
         togglePlayback() {
+            const { app } = view;
             if (app.ticker.started) app.stop();
             else app.start();
             return app.ticker.started;
         },
         stepFrames(count: number) {
+            const { app } = view;
             app.stop();
             clock.step(count);
             draw();
@@ -262,7 +359,7 @@ export async function mountBoot(canvas: HTMLCanvasElement, host: HTMLElement, po
             if (showLogo === value) return;
             showLogo = value;
             draw();
-            app.render();
+            view.app.render();
         },
         setSpeed(value: number) {
             clock.speed = value;

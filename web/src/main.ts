@@ -10,6 +10,7 @@ const playback = document.querySelector<HTMLButtonElement>("#playback")!;
 const orientation = document.querySelector<HTMLSelectElement>("#scr-ort")!;
 const fit = document.querySelector<HTMLInputElement>("#scr-fit")!;
 const logo = document.querySelector<HTMLInputElement>("#scr-logo")!;
+const renderer = document.querySelector<HTMLSelectElement>("#scr-renderer")!;
 const speed = document.querySelector<HTMLInputElement>("#scr-spd")!;
 const label = document.querySelector<HTMLOutputElement>("#scr-spd-label")!;
 const loop = document.querySelector<HTMLInputElement>("#scr-loop")!;
@@ -18,7 +19,7 @@ const delay = document.querySelector<HTMLInputElement>("#scr-delay")!;
 delay.defaultValue = String(config.preview.replayDelayMs / 1000);
 duration.defaultValue = String(config.preview.handoffMs / 1000);
 
-const settings = [orientation, fit, logo, speed, loop, duration, delay];
+const settings = [orientation, fit, logo, renderer, speed, loop, duration, delay];
 for (const control of settings) {
     const key = `bbokeh:${control.id}`;
     const checkbox = control instanceof HTMLInputElement && control.type === "checkbox" ? control : null;
@@ -34,6 +35,7 @@ for (const control of settings) {
             control.value = saved;
             if (!control.validity.valid) control.value = initial;
         }
+        if (control === renderer) continue;
         control.addEventListener("input", () => {
             if (
                 !control.validity.valid ||
@@ -47,20 +49,52 @@ for (const control of settings) {
     } catch {}
 }
 
+const rendererStatus = document.querySelector<HTMLElement>("#renderer-status")!;
+const resetSettings = document.querySelector<HTMLButtonElement>("#reset-settings")!;
+let switchRenderer: ((save: boolean) => Promise<void>) | undefined;
 const form = document.querySelector<HTMLFormElement>("#preview-settings")!;
 let applySettings: (() => void) | undefined;
 form.addEventListener("submit", (event) => event.preventDefault());
-document.querySelector<HTMLButtonElement>("#reset-settings")!.addEventListener("click", () => {
+resetSettings.addEventListener("click", () => {
     form.reset();
     resetSidebarWidth();
     try {
         for (const control of settings) localStorage.removeItem(`bbokeh:${control.id}`);
     } catch {}
+    void switchRenderer?.(false);
     applySettings?.();
 });
 
-void mountBoot(canvas, canvas.parentElement!, orientation.value === "portrait")
+void mountBoot(canvas, canvas.parentElement!, orientation.value === "portrait", renderer.value === "webgpu")
     .then((boot) => {
+        renderer.disabled = false;
+
+        switchRenderer = async (save) => {
+            const selected = renderer.value;
+            renderer.disabled = resetSettings.disabled = true;
+            rendererStatus.textContent = "";
+            try {
+                await boot.setBackend(selected === "webgpu");
+                if (save) {
+                    try {
+                        localStorage.setItem(`bbokeh:${renderer.id}`, selected);
+                    } catch {}
+                }
+            } catch (error) {
+                console.warn("Rendering backend switch failed", error);
+                renderer.value = boot.backend;
+                const requested = selected === "webgpu" ? "WebGPU" : "WebGL 2";
+                const active = boot.backend === "webgpu" ? "WebGPU" : "WebGL 2";
+                rendererStatus.textContent = `${requested} unavailable. Still using ${active}.`;
+            } finally {
+                renderer.disabled = resetSettings.disabled = false;
+            }
+        };
+        renderer.addEventListener("change", () => void switchRenderer?.(true));
+        if (boot.backend !== renderer.value) {
+            if (renderer.value === "webgl") void switchRenderer(false);
+            else rendererStatus.textContent = "WebGPU unavailable. Using WebGL 2.";
+        }
         restart.disabled = false;
         restart.addEventListener("click", boot.restart);
         playback.disabled = false;

@@ -6,7 +6,7 @@ Recreates the BlackBerry PlayBook boot animation in your browser, using original
 
 ## Run locally
 
-Install [Bun](https://bun.sh/) and use a browser with WebGL 2 support.
+Install with [Bun](https://bun.sh/).
 
 ```sh
 cd web
@@ -20,7 +20,11 @@ bun run dev
 2. The startup script then launches `playbook_spotlights`, which draws seven small and five large moving lights behind a separate 512x64 PlayBook wordmark at `(253, 266)`. The lights fade, respawn, and change color in a 180-second cycle. The native refresh rate and swap interval give a nominal 30 fps. The other renderer, `splashscreen_winchester`, is not used in this boot sequence.
 3. On the tablet, Navigator signals when to fade out. The renderer splits the configured 1000 ms fade between the animation and Navigator; the 90/300-second normal/upgrade timeouts are not fixed animation lengths. The browser models the visuals, not the tablet's boot timing.
 
-bbokeh decodes the original graphics, recreates the motion in TypeScript, and draws each frame with PixiJS and WebGL 2. The preview uses the original bilinear sampling and makes the dark parts of each spotlight transparent to avoid rectangular edges where lights overlap.
+### How the browser draws it
+
+1. **Load and decode.** At startup, [`assets.ts`](web/src/animation/assets.ts) fetches the four [bundled assets](#bundled-asset-contents) in parallel. It expands the run-length encoded splash, combines the wordmark's brightness and opacity into one texture, and reads the spotlight quadrant and spawn positions.
+2. **Generate the motion.** [`motion.ts`](web/src/animation/motion.ts) varies the quadrant's brightness with a seeded random generator and mirrors it into one 256x256 texture shared by all 12 lights. At 30 simulation frames per second, it updates each light's position, size, color, and opacity. There are no prerecorded frames.
+3. **Draw the layers.** [`render.ts`](web/src/animation/render.ts) uses [PixiJS](https://github.com/pixijs/pixijs). It draws the static splash first, then switches to the small lights, large lights, and wordmark, in that order. The shader makes dark parts of the lights transparent so their rectangular edges do not show. When a fade is triggered, a black layer covers the animation.
 
 ## Get the firmware
 
@@ -43,12 +47,14 @@ Use Debian (WSL works), [bb10mt](https://github.com/bb10root/bb10mt) 0.5.9.999, 
 
 4. Extract `lba0/usr/lib/graphics/omap4430/displayHAL-winchester.so` from `ifs.zip` (`H`) and `lba0/usr/bin/playbook_spotlights` from `base.zip` (`S`). Copy the byte ranges below to [`web/public/firmware/`](web/public/firmware/). Range ends are exclusive.
 
-| Output | Source byte ranges | SHA-256 |
-| --- | --- | --- |
-| `logo-ipl.rle` | `H[0x41978:0x4381a]` | `8b5c94a97dde546a4a797f2e7ebf173309e3f56d87cafc6d692e5e7785f39cbd` |
-| `logo-spotlights-la.rle` | `S[0xca04:0xef90]` followed by `S[0x77c4:0xca04]` | `8e0082ce2baf2cb393817680577ac9aa2895b1617de129f231d621d7626f17e6` |
-| `spotlight.rle` | `S[0x1508c:0x19bea]` | `58ce21799135d6f9e80170f1cbf24cc61fd27c53910e4add94a71762c7a67469` |
-| `spotlight-spawns.f32` | `S[0x7304:0x77ac]` (149 little-endian position pairs) | `f55bcad1ee08a1c98094ca575f267dbd85c1ed1d7bfbab413304a70aebc8e076` |
+### Bundled asset contents
+
+| File | Contents | Source byte ranges | SHA-256 |
+| --- | --- | --- | --- |
+| `logo-ipl.rle` | Grayscale startup logo. Stores 494x60 pixels as run-length encoded data; the browser pads it to 494x64 with four black rows. | `H[0x41978:0x4381a]` | `8b5c94a97dde546a4a797f2e7ebf173309e3f56d87cafc6d692e5e7785f39cbd` |
+| `logo-spotlights-la.rle` | 512x64 PlayBook wordmark displayed over the moving lights. Contains two run-length encoded streams: brightness first, then opacity. | `S[0xca04:0xef90]` followed by `S[0x77c4:0xca04]` | `8e0082ce2baf2cb393817680577ac9aa2895b1617de129f231d621d7626f17e6` |
+| `spotlight.rle` | One 128x128 grayscale quadrant, run-length encoded. The browser mirrors it into the full spotlight texture. | `S[0x1508c:0x19bea]` | `58ce21799135d6f9e80170f1cbf24cc61fd27c53910e4add94a71762c7a67469` |
+| `spotlight-spawns.f32` | 149 normalized `(x, y)` pairs for spawning lights, stored as little-endian 32-bit floats. Not an image. | `S[0x7304:0x77ac]` | `f55bcad1ee08a1c98094ca575f267dbd85c1ed1d7bfbab413304a70aebc8e076` |
 
 ## Verification
 

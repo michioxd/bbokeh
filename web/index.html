@@ -57,6 +57,15 @@
                         <label><input id="scr-logo" type="checkbox" checked /> Show logo</label>
 
                         <div class="input-group">
+                            <label for="scr-renderer">Rendering backend</label>
+                            <select id="scr-renderer" aria-describedby="renderer-status" disabled>
+                                <option value="webgl" selected>WebGL 2</option>
+                                <option value="webgpu">WebGPU</option>
+                            </select>
+                            <p id="renderer-status" role="status"></p>
+                        </div>
+
+                        <div class="input-group">
                             <label for="scr-variant">Variant</label>
                             <select name="scr-variant" id="scr-variant" disabled>
                                 <option value="playbook">BlackBerry PlayBook</option>
