@@ -1,0 +1,27 @@
+{
+    "name": "bbokeh",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "bunx --bun vite",
+        "build": "bunx --bun tsc && bunx --bun vite build",
+        "preview": "bunx --bun vite preview",
+        "format": "bunx --bun prettier --write .",
+        "format:check": "bunx --bun prettier --check ."
+    },
+    "devDependencies": {
+        "@types/node": "^26.6.6",
+        "prettier": "^3.10.1",
+        "sass": "^1.108.2",
+        "terser": "^5.51.3",
+        "typescript": "~7.0.2",
+        "vite": "^8.3.6"
+    },
+    "trustedDependencies": [
+        "@parcel/watcher"
+    ],
+    "dependencies": {
+        "pixi.js": "^8.23.0"
+    }
+}

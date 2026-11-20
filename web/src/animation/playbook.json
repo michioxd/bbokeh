@@ -1,0 +1,37 @@
+{
+    "firmware": "PlayBook 2.1.0.1917 R1315",
+    "screen": { "width": 1024, "height": 600, "refreshHz": 60, "swapInterval": 2 },
+    "firstSplash": {
+        "file": "logo-ipl.rle",
+        "width": 494,
+        "height": 64,
+        "decodedRows": 60,
+        "x": 265,
+        "y": 268
+    },
+    "spotlights": {
+        "logo": { "file": "logo-spotlights-la.rle", "width": 512, "height": 64, "lumaBytes": 9612, "x": 253, "y": 266 },
+        "light": { "file": "spotlight.rle", "quadrantSize": 128 },
+        "spawnTable": "spotlight-spawns.f32",
+        "palette": [
+            [0, 115, 188],
+            [0, 168, 223],
+            [0, 175, 173],
+            [0, 169, 92],
+            [140, 199, 71],
+            [246, 139, 40],
+            [210, 35, 51],
+            [226, 27, 82],
+            [225, 41, 145],
+            [154, 37, 143]
+        ],
+        "paletteCycleSeconds": 180,
+        "firstStepSeconds": 0.01,
+        "small": { "count": 7, "lifetimeSeconds": 7, "fadeFraction": 0.4 },
+        "large": { "count": 5, "lifetimeSeconds": 10, "fadeFraction": 0.3, "startDelaySeconds": 2 },
+        "configuredFadeMs": 1000,
+        "navigatorTimeoutMs": 90000,
+        "upgradeNavigatorTimeoutMs": 300000
+    },
+    "preview": { "firstSplashMs": 1200, "handoffMs": 90000, "replayDelayMs": 2000 }
+}
